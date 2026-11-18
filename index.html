@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gift Radar</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* Свой тёмный «радарный» вид: не зависит от темы Telegram */
+  :root {
+    --bg: #0b0f1f; --card: #151a33; --card2: #1c2245; --fg: #f1f3ff; --hint: #8e95c4;
+    --ton: #2aa4f4; --mint: #3ef2b0; --pink: #ff5ca8; --gold: #ffc94d; --bad: #ff5d6c;
+    --grad: linear-gradient(90deg, var(--mint), var(--ton) 50%, var(--pink));
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
+  body { margin: 0; background: radial-gradient(120% 60% at 50% -10%, #23306e 0%, var(--bg) 60%) fixed, var(--bg); color: var(--fg);
+         font: 500 15px/1.4 Manrope, -apple-system, system-ui, sans-serif;
+         padding: 0 max(14px, env(safe-area-inset-right)) 100px max(14px, env(safe-area-inset-left)) }
+
+  .hero { display: flex; align-items: center; gap: 16px; padding: 22px 4px 8px }
+  .radar { width: 84px; height: 84px; flex: none; border-radius: 50%; position: relative; overflow: hidden;
+           background: repeating-radial-gradient(circle, transparent 0 13px, #3ef2b033 13px 14px), #0f1630; box-shadow: 0 0 30px #3ef2b040 }
+  .radar::before { content: ""; position: absolute; inset: 0; background: conic-gradient(from 0deg, #3ef2b0aa, transparent 25%); animation: spin 2.6s linear infinite }
+  .radar.off::before { animation-play-state: paused; opacity: .25 }
+  .radar i { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: blip 2.6s infinite }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  @keyframes blip { 0%, 60%, 100% { opacity: .15 } 70% { opacity: 1 } }
+  h1 { font: 800 24px/1.1 Unbounded, system-ui, sans-serif; margin: 0; letter-spacing: -.01em }
+  h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent }
+  .tag { margin-top: 6px; color: var(--hint); font-size: 13px }
+
+  h2 { font: 600 12px Unbounded, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--hint); margin: 22px 6px 8px }
+  .card { background: var(--card); border-radius: 18px; overflow: hidden; border: 1px solid #ffffff0d }
+  .row { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px }
+  .row + .row { border-top: 1px solid #ffffff0f }
+  .line { display: flex; justify-content: space-between; align-items: center; gap: 12px }
+  .name { min-width: 0; display: flex; align-items: center; gap: 12px }
+  .ic { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; flex: none; background: var(--card2) }
+  .sub { color: var(--hint); font-size: 12.5px }
+  .val { font: 600 15px Unbounded, system-ui, sans-serif; white-space: nowrap; color: var(--mint) }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+  .stat { background: var(--card); border-radius: 18px; padding: 14px 16px; border: 1px solid #ffffff0d }
+  .stat b { display: block; font: 800 26px Unbounded, system-ui, sans-serif; margin-top: 4px }
+  .stat:first-child b { color: var(--ton) } .stat:last-child b { color: var(--gold) }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 4px; background: #262d58; outline: none }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 5px solid var(--ton); box-shadow: 0 0 12px #2aa4f480 }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 5px solid var(--ton) }
+
+  .switch { position: relative; width: 52px; height: 30px; flex: none }
+  .switch input { opacity: 0; width: 0; height: 0 }
+  .switch span { position: absolute; inset: 0; border-radius: 15px; background: #2a3060; transition: .25s }
+  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: .25s cubic-bezier(.3, 1.6, .5, 1) }
+  .switch input:checked + span { background: var(--grad) }
+  .switch input:checked + span::after { transform: translateX(22px) }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px }
+  .dot.live { animation: blip 1.4s infinite }
+
+  #save { position: fixed; left: 14px; right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); border: 0; border-radius: 16px; padding: 16px;
+          font: 800 16px Unbounded, system-ui, sans-serif; color: #0b0f1f; background: var(--grad); box-shadow: 0 8px 30px #2aa4f455 }
+  #save.tg { display: none }
+  .note { color: var(--hint); font-size: 12.5px; margin: 10px 8px; line-height: 1.5 }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="radar" id="radar"><i style="left:58px;top:22px"></i><i style="left:20px;top:52px;animation-delay:1.3s"></i></div>
+  <div><h1>Gift <span>Radar</span></h1><div class="tag" id="tag">ищет подарки дешевле рынка 💎</div></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="sub">👀 Лотов просмотрено</span><b id="lots">—</b></div>
+  <div class="stat"><span class="sub">🧾 Продаж в истории</span><b id="sales">—</b></div>
+</div>
+
+<h2>Пульт</h2>
+<div class="card">
+  <div class="row"><div class="line"><div class="name"><div class="ic">📡</div><div>Радар работает<div class="sub">выключи — сигналы на паузе</div></div></div>
+    <label class="switch"><input type="checkbox" id="running"><span></span></label></div></div>
+</div>
+
+<h2>Биржи</h2>
+<div class="card" id="markets"></div>
+
+<h2>Сигналы</h2>
+<div class="card" id="params">
+  <div class="row"><div class="line"><div class="name"><div class="ic">🤖</div><div>Авто-режим<div class="sub">остальное радар считает сам</div></div></div>
+    <label class="switch"><input type="checkbox" id="auto"><span></span></label></div></div>
+</div>
+<p class="note" id="note"></p>
+
+<button id="save">Сохранить 🚀</button>
+
+<script>
+// Текущие значения бот передаёт в адресе: ?max_price=25&min_profit=15&...&markets=Portals,MRKT&st=Portals:ok,Tonnel:off
+const q = new URLSearchParams(location.search);
+const num = (k, d) => q.has(k) ? +q.get(k) : d;
+
+const PARAMS = [
+  ["max_price", "💰", "Лимит на лот", "TON", 1, 200, 1, 25, "дороже — не смотрим"],
+  ["min_profit", "📈", "Мин. прибыль", "%", 5, 100, 1, 15, "после комиссий бирж"],
+  ["max_profit", "🚧", "Потолок прибыли", "%", 50, 500, 10, 100, "выше — считаем ошибкой"],
+  ["sell_fee", "🧾", "Комиссия при продаже", "%", 0, 15, 0.5, 5, ""],
+  ["undercut", "🏷", "Выставлять дешевле рынка", "%", 0, 15, 0.5, 3, "чтобы купили быстро"],
+  ["min_lots", "📦", "Мин. лотов модели", "шт", 1, 10, 1, 3, "для оценки по лотам"],
+  ["min_sales", "🔁", "Мин. продаж за 7 дней", "шт", 1, 20, 1, 3, "для оценки по продажам"],
+  ["poll_sec", "⏱", "Опрос бирж", "с", 1, 30, 1, 1, "раз в N секунд"],
+];
+const ALL = [["Portals", "🌀"], ["Tonnel", "🚇"], ["MRKT", "🛍"]];
+const on = new Set((q.get("markets") || "Portals,MRKT").split(",").filter(Boolean));
+const st = Object.fromEntries((q.get("st") || "").split(",").filter(Boolean).map(s => s.split(":")));
+
+const fmt = n => (+n).toLocaleString("ru-RU");
+document.getElementById("lots").textContent = q.has("lots") ? fmt(q.get("lots")) : "—";
+document.getElementById("sales").textContent = q.has("sales") ? fmt(q.get("sales")) : "—";
+const running = document.getElementById("running");
+running.checked = q.get("paused") !== "1";
+
+const STATUS = { ok: ["var(--mint)", "работает", 1], err: ["var(--bad)", "ошибка", 0], off: ["var(--hint)", "выключена", 0],
+                 web: ["var(--mint)", "через мини-приложение", 1] };
+const mk = document.getElementById("markets");
+for (const [m, ic] of ALL) {
+  const [c, t, live] = STATUS[st[m]] || ["var(--hint)", "нет данных", 0];
+  mk.insertAdjacentHTML("beforeend", `<div class="row"><div class="line"><div class="name"><div class="ic">${ic}</div><div>${m}
+    <div class="sub"><span class="dot${live ? " live" : ""}" style="background:${c}"></span>${t}</div></div></div>
+    <label class="switch"><input type="checkbox" data-m="${m}" ${on.has(m) ? "checked" : ""}><span></span></label></div></div>`);
+}
+
+const box = document.getElementById("params");
+const auto = document.getElementById("auto");
+auto.checked = q.get("auto") !== "0";
+for (const [k, ic, name, unit, min, max, step, def, sub] of PARAMS) {
+  const v = Math.min(max, Math.max(min, num(k, def)));
+  box.insertAdjacentHTML(k === "max_price" ? "afterbegin" : "beforeend", `<div class="row${k === "max_price" ? "" : " manual"}"><div class="line"><div class="name"><div class="ic">${ic}</div><div>${name}
+    ${sub ? `<div class="sub">${sub}</div>` : ""}</div></div><div class="val"><span id="v_${k}">${v}</span> ${unit}</div></div>
+    <input type="range" id="${k}" min="${min}" max="${max}" step="${step}" value="${v}"></div>`);
+  const r = document.getElementById(k);
+  paint(r);
+  r.oninput = () => { document.getElementById("v_" + k).textContent = r.value; paint(r); changed(); };
+}
+// заливка ползунка до бегунка
+function paint(r) {
+  const p = (r.value - r.min) / (r.max - r.min) * 100;
+  r.style.background = `linear-gradient(90deg, var(--mint), var(--ton) ${p}%, #262d58 ${p}%)`;
+}
+function radarState() {
+  document.getElementById("radar").classList.toggle("off", !running.checked);
+  document.getElementById("tag").textContent = running.checked ? "ищет подарки дешевле рынка 💎" : "на паузе 💤";
+}
+// в авто-режиме вручную задаётся только лимит на лот
+const NOTE_AUTO = "🤖 Радар сам смотрит, сколько продаж у модели за неделю. Ликвидная (10+) — сигнал от 10% прибыли, средняя (3–9) — от 15%, редкая — от 25%. Цену продажи ставит на шаг дешевле самого дешёвого лота, подозрительно выгодные сигналы отсеивает.";
+const NOTE_MANUAL = "💡 Сигнал приходит, если прибыль после комиссий между «мин.» и «потолком». Выше потолка — почти всегда ошибка оценки.";
+function autoState() {
+  box.querySelectorAll(".manual").forEach(r => r.hidden = auto.checked);
+  document.getElementById("note").textContent = auto.checked ? NOTE_AUTO : NOTE_MANUAL;
+}
+autoState();
+auto.onchange = () => { autoState(); changed(); };
+radarState();
+mk.onchange = changed;
+running.onchange = () => { radarState(); changed(); };
+
+function collect() {
+  const set = Object.fromEntries(PARAMS.map(([k]) => [k, +document.getElementById(k).value]));
+  const markets = [...mk.querySelectorAll("input")].filter(i => i.checked).map(i => i.dataset.m);
+  return { set, markets, paused: !running.checked, auto: auto.checked };
+}
+
+// sendData передаёт настройки боту сообщением и закрывает мини-приложение
+const tg = window.Telegram && Telegram.WebApp;
+const inTg = tg && tg.platform !== "unknown";
+function save() {
+  const d = collect();
+  if (!d.auto && d.set.min_profit >= d.set.max_profit) return alertMsg("Мин. прибыль должна быть меньше потолка");
+  if (inTg) { tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success"); tg.sendData(JSON.stringify(d)); }
+  else alertMsg("Открой это из кнопки «⚙️ Настройки» в боте радара:\n" + JSON.stringify(d));
+}
+function alertMsg(t) { inTg && tg.showAlert ? tg.showAlert(t) : alert(t); }
+
+if (inTg) {
+  tg.ready(); tg.expand();
+  tg.setHeaderColor && tg.setHeaderColor("#0b0f1f"); tg.setBackgroundColor && tg.setBackgroundColor("#0b0f1f");
+  document.getElementById("save").classList.add("tg");
+  tg.MainButton.setParams({ text: "Сохранить 🚀", color: "#2aa4f4", text_color: "#ffffff" }).onClick(save);
+} else {
+  document.getElementById("save").onclick = save;
+}
+function changed() { if (inTg) { tg.MainButton.show(); tg.HapticFeedback && tg.HapticFeedback.selectionChanged(); } }
+</script>
+</body>
+</html>
